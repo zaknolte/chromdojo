@@ -160,7 +160,7 @@ graph = dcc.Graph(
 
 clientside_callback(
     ClientsideFunction(
-        namespace='clientside',
+        namespace="peaks",
         function_name='addPeak'
     ),
     Output('x-y-data', 'data', allow_duplicate=True),
@@ -177,7 +177,7 @@ clientside_callback(
 
 clientside_callback(
     ClientsideFunction(
-        namespace='clientside',
+        namespace="peaks",
         function_name='deletePeak'
     ),
     Output('x-y-data', 'data', allow_duplicate=True),
@@ -189,7 +189,7 @@ clientside_callback(
 
 clientside_callback(
     ClientsideFunction(
-        namespace='clientside',
+        namespace="peaks",
         function_name='updatePeak'
     ),
     Output('x-y-data', 'data', allow_duplicate=True),
