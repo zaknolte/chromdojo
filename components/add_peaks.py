@@ -80,7 +80,7 @@ def peak_options(n_clicks):
                             html.Div(
                                 [
                                     html.P("Peak Width:", style={"margin-top": 10}),
-                                    dbc.Input(type="number", value=0, min=0, step=0.01, style={"width": 100, "margin-left": 20}, className="sidebar-input", id={"type": "peak-width", "index": n_clicks})
+                                    dbc.Input(type="number", value=0, min=0.01, step=0.01, style={"width": 100, "margin-left": 20}, className="sidebar-input", id={"type": "peak-width", "index": n_clicks})
                                 ],
                                 className="accordian-options"
                             ),
@@ -110,9 +110,10 @@ def peak_options(n_clicks):
 )
 def display_dropdowns(add_peak, del_peak):
     is_added = add_peak
-    is_deleted = del_peak
+    is_deleted = no_update
     patched_children = Patch()
     if ctx.triggered_id != "add-peak":
+        is_deleted = True
         is_added = no_update
         values_to_remove = []
         for i, val in enumerate(del_peak):
@@ -122,7 +123,6 @@ def display_dropdowns(add_peak, del_peak):
         for v in values_to_remove:
             del patched_children[v]
     else:
-        is_deleted = no_update
         peak = peak_options(add_peak)
         patched_children.append(peak)
     return patched_children, is_added, is_deleted

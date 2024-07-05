@@ -154,7 +154,7 @@ def trendline_options(n_clicks):
                             ),
                             html.Div(
                                 [
-                                    dbc.Switch(label="Reset Baseline After?", id={"type": "reset_baseline", "index": n_clicks})
+                                    dbc.Switch(label="Reset Baseline After?", id={"type": "reset_baseline", "index": n_clicks}, value=False)
                                 ],
                                 className="accordian-options",
                                 style={"margin-top": "1rem"}

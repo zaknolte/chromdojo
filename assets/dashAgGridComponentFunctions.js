@@ -42,7 +42,7 @@ dagcomponentfuncs.deleteCal = function (props) {
         setData(props.value)
     }
 
-    let iconify = React.createElement(window.dash_iconify.DashIconify, {icon: props.icon});
+    var iconify = React.createElement(window.dash_iconify.DashIconify, {icon: props.icon});
 
     return React.createElement(
         window.dash_mantine_components.Button,
