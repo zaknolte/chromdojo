@@ -69,17 +69,19 @@ def make_annotations(peaks, annotations_options):
     return annotations
 
 def integrate_peaks(peak_list, x, y, width, height, threshold, distance, prominence, wlen):
+    x = np.asarray(x)
+    y = np.asarray(y)
     peaks = find_peaks(y, width=width, height=height, threshold=threshold, distance=distance, prominence=prominence, wlen=wlen)
     integrations = []
     baseline = peakutils.baseline(y)
     for i in range(len(peaks[1]["left_bases"])):
         for peak in peak_list:
-            if peak.center == peaks[0][i] / 60:
+            if peak["center"] == peaks[0][i] / 60:
                 start, stop = peaks[1]["left_bases"][i], peaks[1]["right_bases"][i]
                 auc = np.trapz(y[start:stop], x[start:stop]) - np.trapz(baseline[start:stop], x[start:stop])
-                peak.start_idx = start
-                peak.stop_idx = stop
-                peak.area = auc
+                peak["start_idx"] = start
+                peak["stop_idx"] = stop
+                peak["area"] = auc
         integrations.append(go.Scatter(x=x[start:stop], y=y[start:stop], fill="toself", mode='lines'))
 
     return integrations
@@ -121,8 +123,8 @@ def update_peaks(peak_data, x, names, heights, centers, widths, skew_factor):
 
 fig = go.Figure(
         go.Scatter(
-            x=[0],
-            y=[0],
+            x=[i for i in range(18)],
+            y=[0 for i in range(18)],
             mode='lines'
         ),
         layout={
@@ -157,180 +159,102 @@ graph = dcc.Graph(
     config=configs, 
     style={"height": 800}
 )
-
 clientside_callback(
     ClientsideFunction(
         namespace="peaks",
-        function_name='addPeak'
+        function_name='xyData'
     ),
-    Output('x-y-data', 'data', allow_duplicate=True),
+    Output("x-y-data", "data"),
     Input("graph-datapoints", "value"),
     Input("peak-added", "data"),
-    State({'type': 'peak-edit-name', 'index': ALL}, "value"),
-    State({"type": "peak-center", "index": ALL}, "value"),
-    State({"type": "peak-height", "index": ALL}, "value"),
-    State({"type": "peak-width", "index": ALL}, "value"),
-    State({"type": "peak-skew", "index": ALL}, "value"),
-    State("x-y-data", "data"),
-    prevent_initial_call=True
-)
-
-clientside_callback(
-    ClientsideFunction(
-        namespace="peaks",
-        function_name='deletePeak'
-    ),
-    Output('x-y-data', 'data', allow_duplicate=True),
-    Input("peak-deleted", "data"),
-    State({"type": "peak-delete", "index": ALL}, "n_clicks"),
-    State("x-y-data", "data"),
-    prevent_initial_call=True
-)
-
-clientside_callback(
-    ClientsideFunction(
-        namespace="peaks",
-        function_name='updatePeak'
-    ),
-    Output('x-y-data', 'data', allow_duplicate=True),
     Input({'type': 'peak-edit-name', 'index': ALL}, "value"),
     Input({"type": "peak-center", "index": ALL}, "value"),
     Input({"type": "peak-height", "index": ALL}, "value"),
     Input({"type": "peak-width", "index": ALL}, "value"),
     Input({"type": "peak-skew", "index": ALL}, "value"),
+    Input({"type": "peak-delete", "index": ALL}, "n_clicks"),
+    Input("noise-data", "data"),
+    Input("baseline-shift", "value"),
+    Input("trendline-choice", "checked"),
+    Input({"type": "baseline-start", "index": ALL}, "value"),
+    Input({"type": "baseline-stop", "index": ALL}, "value"),
+    Input({"type": "baseline-slope", "index": ALL}, "value"),
+    Input({"type": "reset_baseline", "index": ALL}, "value"),
+    Input({"type": "trendline-delete", "index": ALL}, "n_clicks"),
+    Input({"type": "bleed-start", "index": ALL}, "value"),
+    Input({"type": "bleed-stop", "index": ALL}, "value"),
+    Input({"type": "bleed-height", "index": ALL}, "value"),
+    Input({"type": "bleed-slope", "index": ALL}, "value"),
     State("x-y-data", "data"),
     prevent_initial_call=True
 )
 
-# @callback(
-#     Output("main-fig", "figure"),
-#     Output("x-y-data", "data"),
-#     Input("graph-datapoints", "value"),
-#     Input({'type': 'peak-edit-name', 'index': ALL}, "value"),
-#     Input({"type": "peak-center", "index": ALL}, "value"),
-#     Input({"type": "peak-height", "index": ALL}, "value"),
-#     Input({"type": "peak-width", "index": ALL}, "value"),
-#     Input({"type": "peak-skew", "index": ALL}, "value"),
-#     Input({"type": "peak-delete", "index": ALL}, "n_clicks"),
-#     Input("noise-data", "data"),
-#     Input("baseline-shift", "value"),
-#     Input({"type": "baseline-start", "index": ALL}, "value"),
-#     Input({"type": "baseline-stop", "index": ALL}, "value"),
-#     Input({"type": "baseline-slope", "index": ALL}, "value"),
-#     Input({"type": "reset_baseline", "index": ALL}, "value"),
-#     Input({"type": "trendline-delete", "index": ALL}, "n_clicks"),
-#     Input({"type": "bleed-start", "index": ALL}, "value"),
-#     Input({"type": "bleed-stop", "index": ALL}, "value"),
-#     Input({"type": "bleed-height", "index": ALL}, "value"),
-#     Input({"type": "bleed-slope", "index": ALL}, "value"),
-#     Input("annotations-options", "virtualRowData"), # trigger for re-arranging annotation rows
-#     Input("annotations-options", "cellRendererData"), # trigger for annotation checkboxes
-#     Input("annotations-options", "cellClicked"), # trigger for clicking a cell that contains a checkbox (cell clicks check box but don't trigger checkbox callback)
-#     Input("auto-integration", "checked"),
-#     Input("integration-width", "value"),
-#     Input("integration-height", "value"),
-#     Input("integration-threshold", "value"),
-#     Input("integration-distance", "value"),
-#     Input("integration-prominence", "value"),
-#     Input("integration-wlen", "value"),
-#     Input("main-fig", "relayoutData"), # shapes trigger relayout
-#     State("x-y-data", "data"),
-#     Input("table-updates", "data"), # make sure to update fig after minor updates to cals / results table
-#     prevent_initial_call=True
-# )
-# def update_fig(
-#     datapoints,
-#     names,
-#     centers,
-#     heights,
-#     widths,
-#     skew_factor,
-#     delete_peak,
-#     noise,
-#     baseline_shift,
-#     baseline_starts,
-#     baseline_stops,
-#     slope_factors,
-#     reset_baseline,
-#     delete_trendline,
-#     bleed_start,
-#     bleed_stop,
-#     bleed_height,
-#     bleed_slope,
-#     annotation_order,
-#     add_annotation_checkbox_click,
-#     add_annotation_cell_click,
-#     auto_integrate,
-#     integration_width,
-#     integration_height,
-#     integration_threshold,
-#     integration_distance,
-#     integration_prominence,
-#     integration_wlen,
-#     manual_integrations,
-#     peak_data,
-#     table_updates
-#     ):
-#     # !! specific order of operations !!
-#     # some functions like bleed will overwrite some values
-#     # ensure data is added / manipulated to graph in correct order
+clientside_callback(
+    ClientsideFunction(
+        namespace="graph",
+        function_name='renderGraph'
+    ),
+    Output("main-fig", "figure", allow_duplicate=True),
+    Input("x-y-data", "data"),
+    prevent_initial_call=True
+)
 
-#     # add peaks
-#     x = calc_x(datapoints)
-#     if peak_data is not None:
-#         # make sure to just update peak if it already exists
-#         # otherwise it will be overwritten with a new instance
-#         peak_list = update_peaks(peak_data, x, names, heights, centers, widths, skew_factor)
-#     else:
-#         peak_list = [Compound(peak[0], x, peak[1], peak[2], peak[3], peak[4]) for peak in zip(names, heights, centers, widths, skew_factor)]
+@callback(
+    Output("main-fig", "figure", allow_duplicate=True),
+    Input("annotations-options", "virtualRowData"), # trigger for re-arranging annotation rows
+    Input("annotations-options", "cellRendererData"), # trigger for annotation checkboxes
+    Input("annotations-options", "cellClicked"), # trigger for clicking a cell that contains a checkbox (cell clicks check box but don't trigger checkbox callback)
+    Input("auto-integration", "checked"),
+    Input("integration-width", "value"),
+    Input("integration-height", "value"),
+    Input("integration-threshold", "value"),
+    Input("integration-distance", "value"),
+    Input("integration-prominence", "value"),
+    Input("integration-wlen", "value"),
+    Input("main-fig", "relayoutData"), # shapes trigger relayout
+    # Input("table-updates", "data"), # make sure to update fig after minor updates to cals / results table
+    State("x-y-data", "data"),
+    prevent_initial_call=True
+)
+def update_fig(
+    annotation_order,
+    add_annotation_checkbox_click,
+    add_annotation_cell_click,
+    auto_integrate,
+    integration_width,
+    integration_height,
+    integration_threshold,
+    integration_distance,
+    integration_prominence,
+    integration_wlen,
+    manual_integrations,
+    # table_updates
+    peak_data,
+    ):
+    if peak_data:
+        patched_figure = Patch()
+        print(peak_data)
+        # if ctx.triggered_id == "main-fig":
+        #     # print(manual_integrations.get("shapes"))
+        #     # TODO add logic for integration shapes
+        #     return no_update
 
-#     y = calc_y(peak_list)
-
-#     # add bleed
-#     if all([bleed_start, bleed_stop, bleed_height, bleed_slope]):
-#         # have to use pattern matching callbacks since component only conditionally exists even though there's only one option
-#         # should always be list of single value
-#         y = add_bleed(y, bleed_start[0] * 60, bleed_stop[0] * 60, bleed_height[0], bleed_slope[0] * 60)
-
-#     # add baselines
-#     if all([baseline_starts, baseline_stops, slope_factors, reset_baseline]):
-#         # pattern matching callback - grabs all dynamically created baseline options
-#         for trendline in zip(baseline_starts, baseline_stops, slope_factors, reset_baseline):
-#             y = add_trendline(y, trendline[0] * 60, trendline[1] * 60, trendline[2] / 60, trendline[3])
+        # integrate peaks
+        # clear any previous integrations and re-create original peak data
+        patched_figure["data"].clear()
+        patched_figure["data"].append(go.Scatter(x=peak_data["x"], y=peak_data["y"]))
+        if auto_integrate:
+            integrations = integrate_peaks(peak_data["peaks"], peak_data["x"], peak_data["y"], integration_width, integration_height, integration_threshold, integration_distance, integration_prominence, integration_wlen)
+            patched_figure["data"].extend(integrations)
+        else:
+            for peak in peak_data["peaks"]:
+                peak["area"] = 0
         
-#     # add noise
-#     # if no peaks have been added yet, initialize y to zeros
-#     try:
-#         y += noise
-#     except TypeError:
-#         y = np.zeros(x.size) + noise
+        # add annotations
+        if annotation_order is not None and any([field["Add to Plot"] for field in annotation_order]):
+            patched_figure["layout"]["annotations"] = make_annotations(peak_data["peaks"], annotation_order)
 
-
-#     # adjust full baseline
-#     y += baseline_shift
-    
-#     patched_figure = Patch()
-
-#     if ctx.triggered_id == "main-fig":
-#         # print(manual_integrations.get("shapes"))
-#         # TODO add logic for integration shapes
-#         return no_update
-
-#     # integrate peaks
-#     # clear any previous integrations and re-create original peak data
-#     patched_figure["data"].clear()
-#     patched_figure["data"].append(go.Scatter(x=x, y=y))
-#     if auto_integrate:
-#         integrations = integrate_peaks(peak_list, x, y, integration_width, integration_height, integration_threshold, integration_distance, integration_prominence, integration_wlen)
-#         patched_figure["data"].extend(integrations)
-#     else:
-#         for peak in peak_list:
-#             peak.clear_integration()
-    
-#     # add annotations
-#     if annotation_order is not None and any([field["Add to Plot"] for field in annotation_order]):
-#         patched_figure["layout"]["annotations"] = make_annotations(peak_list, annotation_order)
-
-#     # dcc.Store can't store raw python objects
-#     # json serialize first then deserialize when needed to access peaks
-#     return patched_figure, {"x": x, "y": y, "peaks": jsonpickle.encode(peak_list)}
+        # dcc.Store can't store raw python objects
+        # json serialize first then deserialize when needed to access peaks
+        return patched_figure
+    return no_update
