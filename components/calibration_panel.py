@@ -187,7 +187,6 @@ clientside_callback(
         function_name='addCal'
     ),
     Output("calibration-table", "rowData", allow_duplicate=True),
-    Output("x-y-data", "data", allow_duplicate=True),
     Input("add-cal", "n_clicks"),
     State("peak-calibration-selection", "value"),
     State("calibration-table", "rowData"),
@@ -208,13 +207,13 @@ clientside_callback(
     prevent_initial_call=True,
 )
 
-@callback(
-    Output("calibration-curve", "figure", allow_duplicate=True),
-    Output("x-y-data", "data", allow_duplicate=True),
+clientside_callback(
+    ClientsideFunction(
+        namespace="calibration",
+        function_name='updateCal'
+    ),
     Output("table-updates", "data", allow_duplicate=True),
     Input("calibration-table", "cellValueChanged"),
-    Input("calibration-table", "rowData"),
-    # Input("calibration-table", "cellRendererData"),
     Input("regression-select", "value"),
     Input("weight-select", "value"),
     Input("results-table", "cellValueChanged"),
@@ -222,7 +221,15 @@ clientside_callback(
     State("x-y-data", "data"),
     prevent_initial_call=True,
 )
-def update_calibrators(new_data, rowdata, regression_type, weighting, unit_update, compound, peak_data):
+
+@callback(
+    Output("calibration-curve", "figure", allow_duplicate=True),
+    Input("table-updates", "data"),
+    State("peak-calibration-selection", "value"),
+    State("x-y-data", "data"),
+    prevent_initial_call=True,
+)
+def update_calibrators(_, compound, peak_data):
     def get_r_squared(coefs):
         fit = np.poly1d(coefs)
         yhat = fit(x)
@@ -231,24 +238,20 @@ def update_calibrators(new_data, rowdata, regression_type, weighting, unit_updat
         sstot = np.sum((y - ybar)**2)
         return ssreg / sstot
 
-    # create the cal curve graph when updating points or switching compounds
+    if peak_data is None:
+        return no_update
+    
     patched_fig = Patch()
     for peak in peak_data["peaks"]:
+        if not peak["calibration"]["points"]:
+            return no_update
         if peak["name"] == compound:
             traces = []
             x = []
             x_total = []
             y = []
             # build cal points
-            if not peak["calibration"]["points"]:
-                return no_update, no_update, no_update
             for cal in peak["calibration"]["points"]:
-                if new_data:
-                    if cal["name"] == new_data[0]["data"]["Level"]:
-                        cal["x"] = new_data[0]["data"]["Concentration"]
-                        cal["y"] = new_data[0]["data"]["Abundance"]
-                        cal["used"] = (new_data[0]["data"]["Use"])
-
                 if cal["used"]:
                     marker = {
                         "symbol": "circle",
@@ -272,7 +275,7 @@ def update_calibrators(new_data, rowdata, regression_type, weighting, unit_updat
                 traces.append(go.Scatter(x=[cal["x"]], y=[cal["y"]], mode="markers", marker=marker))
 
             
-            text = ""
+            text = "y = "
             x = np.asarray(x)
             y = np.asarray(y)
 
@@ -284,10 +287,10 @@ def update_calibrators(new_data, rowdata, regression_type, weighting, unit_updat
                 "1y2": 1 / (y * y),
             }
 
-            w = weights[weighting]
+            w = weights[peak["calibration"]["weighting"]]
             # build curves
             try:
-                if regression_type == "linear":
+                if peak["calibration"]["type"] == "linear":
                     coefs = np.polyfit(x, y, 1)
                     r2 = get_r_squared(coefs)
                     # add additional points to plot a smoother curve
@@ -299,7 +302,7 @@ def update_calibrators(new_data, rowdata, regression_type, weighting, unit_updat
 
                     text += f"{coefs[0]:.4g}x {const_sign} {coefs[1]:.4g}"
 
-                elif regression_type == "quadratic":
+                elif peak["calibration"]["type"] == "quadratic":
                     coefs = np.polyfit(x, y, 2)
                     r2 = get_r_squared(coefs)
                     # add additional points to plot a smoother curve
@@ -311,8 +314,8 @@ def update_calibrators(new_data, rowdata, regression_type, weighting, unit_updat
 
                     text += f"{coefs[0]:.4g}x^2 {slope_sign} {coefs[1]:.4g}x {const_sign} {coefs[2]:.4g}"
 
-                elif regression_type == "response-factor":
-                    if "x" in weighting:
+                elif peak["calibration"]["type"] == "response-factor":
+                    if "x" in peak["calibration"]["weighting"]:
                         pass 
                     coefs = np.linalg.lstsq(np.asarray(x).reshape(-1,1), y)[0]
                     # add additional points to plot a smoother curve
@@ -321,13 +324,9 @@ def update_calibrators(new_data, rowdata, regression_type, weighting, unit_updat
 
                     text += f"{coefs[0]:.4g}x"
             except Exception:
-                return no_update, no_update, no_update
-            
-            peak["calibration"]["type"] = regression_type
-            peak["calibration"]["weighting"] = weighting
-            peak["calibration"]["coefficients"] = coefs
+                return no_update
 
-            if regression_type != "response-factor":
+            if peak["calibration"]["type"] != "response-factor":
                 text += f"<br>r2 = {r2:.5f}"
 
             annotation = [
@@ -357,4 +356,4 @@ def update_calibrators(new_data, rowdata, regression_type, weighting, unit_updat
             patched_fig["layout"]["xaxis"]["title"]["text"] = f"Concentration ({peak['calibration']['units']})"
             patched_fig["data"] = traces
     
-    return patched_fig, peak_data, datetime.datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
+    return patched_fig
