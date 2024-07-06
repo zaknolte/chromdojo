@@ -126,18 +126,6 @@ clientside_callback(
 
 clientside_callback(
     ClientsideFunction(
-        namespace="peaks",
-        function_name='integrations'
-    ),
-    Output("x-y-data", "data", allow_duplicate=True),
-    Input("integration-data", "data"),
-    Input("x-y-data", "data"),
-    State("auto-integration", "checked"),
-    prevent_initial_call=True
-)
-
-clientside_callback(
-    ClientsideFunction(
         namespace="graph",
         function_name='renderGraph'
     ),
@@ -145,7 +133,9 @@ clientside_callback(
     Input("annotations-options", "virtualRowData"), # trigger for re-arranging annotation rows
     Input("annotations-options", "cellRendererData"), # trigger for annotation checkboxes
     Input("annotations-options", "cellClicked"), # trigger for clicking a cell that contains a checkbox (cell clicks check box but don't trigger checkbox callback)
+    Input("integration-data", "data"),
     Input("x-y-data", "data"),
+    State("auto-integration", "checked"),
     prevent_initial_call=True
 )
 
