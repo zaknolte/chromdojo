@@ -23,7 +23,7 @@ function add_bleed(y, start, stop, height, factor) {
         return height / (1 + Math.exp(-num*factor) / factor);
     });
     // update sliced values
-    for (let i = 0; i < stop + 1; i++) {
+    for (let i = 0; i < stop - start + 1; i++) {
         y[i + start] += vals[i]
     };
     // update values after stop
@@ -95,6 +95,9 @@ class Compound {
         this.start_idx = 0;
         this.stop_idx = 0;
     };
+    calculate_concentration() {
+        this.concentration = this.calibration.calculate_concentration(this.area)
+    }
 };
 
 class Calibration {
@@ -107,40 +110,34 @@ class Calibration {
   };
 
   add_point(point) {
-    this.points.append(point);
-    this.sort_points();
+    this.points.push(point);
   };
 
   delete_point(level) {
-    for (let index = this.points.length - 1; index >= 0; --index) {
-        if (this.points[index].name === level) {
-            delete this.points[index];
-        };
-    };
-    this.sort_points();
+    this.points = this.points.filter((x) => x.name !== level)
   };
 
   rename_points() {
-    this.sort_points();
-    this.points = this.points.map((x, i) => x.name = i);
-  };
-
-  sort_points() {
-    this.points.sort((a, b) => a.name.localeCompare(b.name));
+    this.points = this.points.map((point, i) => ({
+        name: i + 1,
+        x: point.x,
+        y: point.y,
+        used: point.used
+    }));
   };
 
   calculate_concentration(area) {
     if (!this.type || this.coefficients.every((i) => false)) {
-    return 0;
+        return 0;
     }
     else if (this.type === "linear") {
-    return this.coefficients[0] * area + this.coefficients[1];
+        return this.coefficients[0] * area + this.coefficients[1];
     }
     else if (this.type === "quadratic") {
-    return (this.coefficients[0] * area * area) + (this.coefficients[1] * area) + this.coefficients[2];
+        return (this.coefficients[0] * area * area) + (this.coefficients[1] * area) + this.coefficients[2];
     }
     else if (this.type === "response-factor") {
-    return this.coefficients[0] * area;
+        return this.coefficients[0] * area;
     };
 
     return 0;
@@ -152,7 +149,7 @@ class calPoint {
     this.name = name;
     this.x = x;
     this.y = y;
-    this.used = True;
+    this.used = true;
   };
 
   set_used(use) {
@@ -210,13 +207,13 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
                     }
                 }
                 // check if new peak was created and add it
-                if (remainingIdx.length > data["peaks"].length) {
-                    data["peaks"].push(new Compound(names[names.length-1], peakAdded, centers[centers.length-1], heights[heights.length-1], widths[widths.length-1], skews[skews.length-1]));
+                if (remainingIdx.length > data.peaks.length) {
+                    data.peaks.push(new Compound(names[names.length-1], peakAdded, centers[centers.length-1], heights[heights.length-1], widths[widths.length-1], skews[skews.length-1]));
                     remainingIdx.push(peakAdded);
                 }
                 // rebuild peaks using only component idx that still exist
                 var remainingPeaks = [];
-                for (peak of data["peaks"]) {
+                for (peak of data.peaks) {
                     if (remainingIdx.includes(peak.idx)) {
                         remainingPeaks.push(peak);
                     };
@@ -249,8 +246,7 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
                         });
                     };
                 } catch (error) {
-                    return window.dash_clientside.no_update;
-                }
+                };
                 // start fresh with y and recalc all values
                 y = Array(data["x"].length).fill(0);
                 // make sure to calculate trendline data first as they can be multiplicative to existing y data
@@ -274,44 +270,174 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
                 // add y values from every peak
                 remainingPeaks.forEach((peak) => {
                     var peakY = peak.create_peak(data["x"]);
+                    peak.clear_integration();
                     y = y.map((num, idx) => {return num + peakY[idx]});
                 });
                 return {"x": data["x"], "y": y, "peaks": remainingPeaks};
             };
+        },
+        integrations: function(integrationData, peakData, autoIntegrate) {
+            if(typeof peakData !== "undefined") {
+                // clear out any existing integrations and rebuild
+                for (peak of peakData.peaks) {
+                    console.log(peak)
+                    peak.clear_integration();
+                };
+                if (autoIntegrate) {
+                    for (peak of peakData.peaks) {
+                        for (integration of integrationData) {
+                            if (integration.idx === peak.idx) {
+                                peak.area = integration.area;
+                                peak.start_idx = integration.start_idx;
+                                peak.stop_idx = integration.stop_idx;
+                            };
+                        };
+                    };
+                };
+                return {'x': peakData['x'], 'y': peakData['y'], 'peaks': peakData.peaks};
+            };
+            return window.dash_clientside.no_update;
         }
     },
     // graph namespace functions
     graph: {
-        renderGraph: function(data) {
+        renderGraph: function(options, isChecked, isClicked, data) {
             if(typeof data !== "undefined") {
+                var annotations = [];
+                // main x y plot
                 var plot = [{
                     x: data.x,
                     y: data.y,
                     type: 'scatter'
                 }];
+                for (peak of data.peaks) {
+                    // console.log(peak)
+                    if (peak.area > 0) {
+                        // add integration shapes
+                        plot.push({
+                            x: data.x.slice(peak.start_idx, peak.stop_idx),
+                            y: data.y.slice(peak.start_idx, peak.stop_idx),
+                            type: 'scatter',
+                            mode: 'lines',
+                            fill: 'toself'
+                        });
+                    };
+                    // add annotations
+                    var text = '';
+                    for (option of options) {
+                        if (option['Field'] === 'Peak Name' && option['Add to Plot']) {
+                            text += `${peak.name}<br>`
+                        };
+                        if (option['Field'] === 'RT' && option['Add to Plot']) {
+                            text += `RT: ${peak.center.toFixed(2)} min<br>`
+                        };
+                        if (option['Field'] === 'Concentration' && option['Add to Plot']) {
+                            text += `Conc: ${peak.calibration.calculate_concentration(peak.area).toFixed(2)} ${peak.calibration.units}<br>`
+                        };
+                        if (option['Field'] === 'Area' && option['Add to Plot']) {
+                            text += `Area: ${peak.area.toFixed(2)}<br>`
+                        };
+                        if (option['Field'] === 'Height' && option['Add to Plot']) {
+                            text += `Height: ${peak.height.toFixed(2)}<br>`
+                        };
+                    };
+                    annotations.push({
+                        text: text,
+                        x: peak.center,
+                        y: peak.height * 1.1,
+                        height: 150,
+                        showarrow: false
+                    });
+                };
                 return {
-                    "data": plot,
-                    "layout": {
-                        'paper_bgcolor': 'rgba(0,0,0,0)',
-                        "showlegend": false,
-                        "xaxis": {
-                            "color": "white",
-                            "title": {
-                                "text": "Time",
+                    data: plot,
+                    layout: {
+                        paper_bgcolor: 'rgba(0,0,0,0)',
+                        showlegend: false,
+                        xaxis: {
+                            color: "white",
+                            title: {
+                                text: "Time",
                             },
-                            "showgrid": false
+                            showgrid: false
                         },
-                        "yaxis": {
-                            "color": "white",
-                            "title": {
-                                "text": "Abundance",
+                        yaxis: {
+                            color: "white",
+                            title: {
+                                text: "Abundance",
                             },
-                            "showgrid": false
-                        }
+                            showgrid: false,
+                        },
+                        annotations: annotations
                     },
                 };
             };
             return window.dash_clientside.no_update;
         }
+    },
+    calibration: {
+        updateTable: function(compound, data) {
+            if(typeof data !== "undefined") {
+                var rowData = [];
+                for (peak of data.peaks) {
+                    if (peak.name === compound) {
+                        for (cal of peak.calibration.points) {
+                            rowData.push({
+                                Level: cal.name,
+                                Concentration: cal.x,
+                                Abundance: cal.y,
+                                Use: cal.used,
+                                Delete: "X"
+                            });
+                        };
+                    };
+                };
+                return [rowData, false];
+            };
+            return [window.dash_clientside.no_update, window.dash_clientside.no_update];
+        },
+        addCal: function(n_clicks, compound, tableData, peakData) {
+            if(typeof peakData !== "undefined") {
+                var rowData = [...tableData]
+                for (peak of peakData.peaks) {
+                    if (peak.name === compound) {
+                        let name = peak.calibration.points.length + 1
+                        rowData.push({
+                            Level: name,
+                            Concentration: 0,
+                            Abundance: 0,
+                            Use: true,
+                            Delete: "X"
+                        });
+                        peak.calibration.add_point(new calPoint(name, 0, 0));
+                        return [rowData, peakData];
+                    };
+                };
+            };
+            return [window.dash_clientside.no_update, window.dash_clientside.no_update];
+        },
+        deleteCal: function(deleted, compound, data) {
+            if(typeof data !== "undefined") {
+                var rowData = [];
+                for (peak of data.peaks) {
+                    if (peak.name === compound) {
+                        peak.calibration.delete_point(deleted.rowIndex + 1);
+                        peak.calibration.rename_points();
+                        for (cal of peak.calibration.points) {
+                            console.log(cal); 
+                            rowData.push({
+                                Level: cal.name,
+                                Concentration: cal.x,
+                                Abundance: cal.y,
+                                Use: cal.used,
+                                Delete: "X"
+                            });
+                        };
+                        return [new Date(), rowData];
+                    };
+                };
+            };
+            return [window.dash_clientside.no_update, window.dash_clientside.no_update];
+        }
     }
-})
+});
