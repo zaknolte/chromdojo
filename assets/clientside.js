@@ -109,21 +109,33 @@ class Calibration {
     this.units = "ppm";
   };
 
-  add_point(point) {
+  addPoint(point) {
     this.points.push(point);
   };
 
-  delete_point(level) {
+  deletePoint(level) {
     this.points = this.points.filter((x) => x.name !== level)
   };
 
-  rename_points() {
+  renamePoints() {
     this.points = this.points.map((point, i) => ({
         name: i + 1,
         x: point.x,
         y: point.y,
         used: point.used
     }));
+  };
+
+  setPointsUsed(idx, value) {
+    this.points[idx].used = value;
+  };
+
+  setPointsX(idx, value) {
+    this.points[idx].x = value;
+  };
+
+  setPointsY(idx, value) {
+    this.points[idx].y = value;
   };
 
   calculate_concentration(area) {
@@ -150,10 +162,6 @@ class calPoint {
     this.x = x;
     this.y = y;
     this.used = true;
-  };
-
-  set_used(use) {
-    this.used = use;
   };
 };
 
@@ -276,32 +284,10 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
                 return {"x": data["x"], "y": y, "peaks": remainingPeaks};
             };
         },
-        integrations: function(integrationData, peakData, autoIntegrate) {
-            if(typeof peakData !== "undefined") {
-                // clear out any existing integrations and rebuild
-                for (peak of peakData.peaks) {
-                    console.log(peak)
-                    peak.clear_integration();
-                };
-                if (autoIntegrate) {
-                    for (peak of peakData.peaks) {
-                        for (integration of integrationData) {
-                            if (integration.idx === peak.idx) {
-                                peak.area = integration.area;
-                                peak.start_idx = integration.start_idx;
-                                peak.stop_idx = integration.stop_idx;
-                            };
-                        };
-                    };
-                };
-                return {'x': peakData['x'], 'y': peakData['y'], 'peaks': peakData.peaks};
-            };
-            return window.dash_clientside.no_update;
-        }
     },
     // graph namespace functions
     graph: {
-        renderGraph: function(options, isChecked, isClicked, data) {
+        renderGraph: function(options, isChecked, isClicked, integrationData, data, autoIntegrate) {
             if(typeof data !== "undefined") {
                 var annotations = [];
                 // main x y plot
@@ -311,7 +297,18 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
                     type: 'scatter'
                 }];
                 for (peak of data.peaks) {
-                    // console.log(peak)
+                    // clear out integrations and rebuild
+                    peak.clear_integration();
+                    if (autoIntegrate) {
+                        for (integration of integrationData) {
+                            if (integration.idx === peak.idx) {
+                                peak.area = integration.area;
+                                peak.start_idx = integration.start_idx;
+                                peak.stop_idx = integration.stop_idx;
+                            };
+                        };
+                    }
+
                     if (peak.area > 0) {
                         // add integration shapes
                         plot.push({
@@ -409,35 +406,57 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
                             Use: true,
                             Delete: "X"
                         });
-                        peak.calibration.add_point(new calPoint(name, 0, 0));
-                        return [rowData, peakData];
+                        peak.calibration.addPoint(new calPoint(name, 0, 0));
+                        return rowData;
+                    };
+                };
+            };
+            return window.dash_clientside.no_update;
+        },
+        deleteCal: function(event, compound, data) {
+            if(typeof data !== "undefined") {
+                var rowData = [];
+                for (peak of data.peaks) {
+                    if (peak.name === compound) {
+                        if (event.colId === "Delete") {
+                            peak.calibration.deletePoint(event.rowIndex + 1);
+                            peak.calibration.renamePoints();
+                            for (cal of peak.calibration.points) {
+                                rowData.push({
+                                    Level: cal.name,
+                                    Concentration: cal.x,
+                                    Abundance: cal.y,
+                                    Use: cal.used,
+                                    Delete: "X"
+                                });
+                            };
+                            return [new Date(), rowData];
+                        };
                     };
                 };
             };
             return [window.dash_clientside.no_update, window.dash_clientside.no_update];
         },
-        deleteCal: function(deleted, compound, data) {
+        updateCal: function(event, regression, weighting, unitChange, compound, data) {
             if(typeof data !== "undefined") {
-                var rowData = [];
                 for (peak of data.peaks) {
                     if (peak.name === compound) {
-                        peak.calibration.delete_point(deleted.rowIndex + 1);
-                        peak.calibration.rename_points();
                         for (cal of peak.calibration.points) {
-                            console.log(cal); 
-                            rowData.push({
-                                Level: cal.name,
-                                Concentration: cal.x,
-                                Abundance: cal.y,
-                                Use: cal.used,
-                                Delete: "X"
-                            });
+                            if (event[0].colId === "Use") {
+                                peak.calibration.setPointsUsed(event[0].rowIndex, event[0].value);
+                            } else if (event[0].colId === "Concentration") {
+                                peak.calibration.setPointsX(event[0].rowIndex, event[0].value);
+                            } else if (event[0].colId === "Abundance") {
+                                peak.calibration.setPointsY(event[0].rowIndex, event[0].value);
+                            }
                         };
-                        return [new Date(), rowData];
+                        peak.calibration.type = regression;
+                        peak.calibration.weighting = weighting;
                     };
                 };
+                return new Date();
             };
-            return [window.dash_clientside.no_update, window.dash_clientside.no_update];
+            return window.dash_clientside.no_update;
         }
     }
 });
