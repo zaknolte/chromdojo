@@ -149,8 +149,9 @@ clientside_callback(
     Input("annotations-options", "cellRendererData"), # trigger for annotation checkboxes
     Input("annotations-options", "cellClicked"), # trigger for clicking a cell that contains a checkbox (cell clicks check box but don't trigger checkbox callback)
     Input("integration-intermediate", "data"),
-    Input("x-y-data", "data"),
     Input("calibration-intermediate", "data"),
+    Input("x-y-data", "data"),
+    State("baseline-shift", "value"),
     prevent_initial_call=True
 )
 

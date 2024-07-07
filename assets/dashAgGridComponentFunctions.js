@@ -55,3 +55,10 @@ dagcomponentfuncs.deleteCal = function (props) {
         props.value
     );
 };
+
+dagcomponentfuncs.editUnit = function (props) {
+    return React.createElement('div', {style: {display: "flex", justifyContent: "space-between", alignItems: "baseline"}}, [
+        `${props.value}`,
+        React.createElement('i', {className: "fa-solid fa-pencil"}),
+    ])
+};

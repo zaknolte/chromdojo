@@ -322,7 +322,7 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
     },
     // graph namespace functions
     graph: {
-        renderGraph: function(options, isChecked, isClicked, integrationTrigger, data, tableTrigger) {
+        renderGraph: function(options, isChecked, isClicked, integrationTrigger, tableTrigger, data, baselineShift) {
             if(typeof data !== "undefined") {
                 var annotations = [];
                 // main x y plot
@@ -337,6 +337,7 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
                     annotationY = Math.max(...i);
                 };
                 annotationY *= .1;
+                annotationY += baselineShift;
                 for (peak of data.peaks) {
                     if (peak.area > 0) {
                         // add integration shapes
@@ -417,7 +418,6 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
                                 Delete: "X"
                             });
                         };
-                        console.log(peak.calibration.type)
                         peak.calibration.type = peak.calibration.type === null ? "linear" : peak.calibration.type;
                         peak.calibration.weighting = peak.calibration.weighting === null ? "none" : peak.calibration.weighting;
                         return [
@@ -537,21 +537,33 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
     },
     // results table namespace functions
     results: {
-        updateTable: function(data) {
+        updateTable: function(integrationTrigger, calibrationTrigger, data, test) {
             if(typeof data !== "undefined") {
+                console.log(test)
                 var rowData = [];
                 for (peak of data.peaks) {
-                    peak.calibration.calculate_concentration(peak.area);
+                    // peak.calibration.calculate_concentration(peak.area);
                     rowData.push({
                         RT: `${peak.center.toFixed(2)} min`,
                         Name: peak.name,
                         Height: `${peak.height.toFixed(2)}`,
                         Area: `${peak.area.toFixed(2)}`,
-                        Concentration: `${peak.concentration.toFixed(2)}`,
+                        Concentration: `${peak.calibration.calculate_concentration(peak.area).toFixed(2)}`,
                         Units: peak.calibration.units
                     })
                 };
                 return rowData;
+            };
+            return window.dash_clientside.no_update;
+        },
+        updateUnits: function(event, data) {
+            if(typeof data !== "undefined") {
+                for (peak of data.peaks) {
+                    if (peak.name === event[0].data.Name) {
+                        peak.calibration.units = event[0].data.Units;
+                        return new Date();
+                    };
+                };
             };
             return window.dash_clientside.no_update;
         }
