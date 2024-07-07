@@ -95,30 +95,40 @@ calibration_panel = dmc.TabsPanel(
                 [
                     html.Div(
                         [
-                            dmc.Select(
-                                id="regression-select",
-                                label="Regression",
-                                value="linear",
-                                data=[
-                                    {"value": "linear", "label": "Linear"},
-                                    {"value": "quadratic", "label": "Quadratic"},
-                                    {"value": "response-factor", "label": "Response Factor"},
+                            html.Div(
+                                [
+                                    html.H6("Regression"),
+                                    dbc.Select(
+                                        id="regression-select",
+                                        value="linear",
+                                        options=[
+                                            {"value": "linear", "label": "Linear"},
+                                            {"value": "quadratic", "label": "Quadratic"},
+                                            {"value": "response-factor", "label": "Response Factor"},
+                                        ],
+                                        style={"width": 200}
+                                    ),
                                 ],
                             ),
-                            dmc.Select(
-                                id="weight-select",
-                                label="Weighting",
-                                value="none",
-                                data=[
-                                    {"value": "none", "label": "None"},
-                                    # {"value": "1x", "label": "1/x"},
-                                    # {"value": "1x2", "label": "1/x^2"},
-                                    # {"value": "1y", "label": "1/y"},
-                                    # {"value": "1y2", "label": "1/y^2"},
+                            html.Div(
+                                [
+                                    html.H6("Weighting"),
+                                    dbc.Select(
+                                        id="weight-select",
+                                        value="none",
+                                        options=[
+                                            {"value": "none", "label": "None"},
+                                            # {"value": "1x", "label": "1/x"},
+                                            # {"value": "1x2", "label": "1/x^2"},
+                                            # {"value": "1y", "label": "1/y"},
+                                            # {"value": "1y2", "label": "1/y^2"},
+                                        ],
+                                        style={"width": 200}
+                                    ),
                                 ],
                             ),
                         ],
-                        style={"display": "flex", "justifyContent": "space-evenly", "z-index": -1, "margin-bottom": "-10%"}
+                        style={"display": "flex", "justifyContent": "space-evenly", "margin-bottom": "-10%", "position": "relative", "zIndex": 10}
                     ),
                     dcc.Graph(
                         figure=go.Figure(
@@ -176,6 +186,9 @@ clientside_callback(
     ),
     Output("calibration-table", "rowData", allow_duplicate=True),
     Output("add-cal", "disabled"),
+    Output("table-updates", "data", allow_duplicate=True),
+    Output("regression-select", "value"),
+    Output("weight-select", "value"),
     Input("peak-calibration-selection", "value"),
     State("x-y-data", "data"),
     prevent_initial_call=True
@@ -214,9 +227,43 @@ clientside_callback(
     ),
     Output("table-updates", "data", allow_duplicate=True),
     Input("calibration-table", "cellValueChanged"),
-    Input("regression-select", "value"),
-    Input("weight-select", "value"),
     Input("results-table", "cellValueChanged"),
+    State("peak-calibration-selection", "value"),
+    State("x-y-data", "data"),
+    prevent_initial_call=True,
+)
+
+clientside_callback(
+    ClientsideFunction(
+        namespace="calibration",
+        function_name='updateCalType'
+    ),
+    Output("table-updates", "data", allow_duplicate=True),
+    Input("regression-select", "value"),
+    State("peak-calibration-selection", "value"),
+    State("x-y-data", "data"),
+    prevent_initial_call=True,
+)
+
+clientside_callback(
+    ClientsideFunction(
+        namespace="calibration",
+        function_name='updateCalWeight'
+    ),
+    Output("table-updates", "data", allow_duplicate=True),
+    Input("weight-select", "value"),
+    State("peak-calibration-selection", "value"),
+    State("x-y-data", "data"),
+    prevent_initial_call=True,
+)
+
+clientside_callback(
+    ClientsideFunction(
+        namespace="calibration",
+        function_name='updateCoefs'
+    ),
+    Output("table-updates", "data", allow_duplicate=True),
+    Input("calibration-intermediate", "data"),
     State("peak-calibration-selection", "value"),
     State("x-y-data", "data"),
     prevent_initial_call=True,
@@ -224,6 +271,7 @@ clientside_callback(
 
 @callback(
     Output("calibration-curve", "figure", allow_duplicate=True),
+    Output("calibration-intermediate", "data", allow_duplicate=True),
     Input("table-updates", "data"),
     State("peak-calibration-selection", "value"),
     State("x-y-data", "data"),
@@ -238,13 +286,19 @@ def update_calibrators(_, compound, peak_data):
         sstot = np.sum((y - ybar)**2)
         return ssreg / sstot
 
-    if peak_data is None:
-        return no_update
-    
     patched_fig = Patch()
+    coefs = []
+    if peak_data is None:
+        patched_fig["layout"]["annotations"] = None
+        patched_fig["data"] = [go.Scatter(x=[0], y=[0], mode="markers")]
+        return patched_fig, coefs
+    
     for peak in peak_data["peaks"]:
         if not peak["calibration"]["points"]:
-            return no_update
+            patched_fig["layout"]["annotations"] = None
+            patched_fig["data"] = [go.Scatter(x=[0], y=[0], mode="markers")]
+            return patched_fig, coefs
+        
         if peak["name"] == compound:
             traces = []
             x = []
@@ -315,19 +369,21 @@ def update_calibrators(_, compound, peak_data):
                     text += f"{coefs[0]:.4g}x^2 {slope_sign} {coefs[1]:.4g}x {const_sign} {coefs[2]:.4g}"
 
                 elif peak["calibration"]["type"] == "response-factor":
-                    if "x" in peak["calibration"]["weighting"]:
-                        pass 
+                    # if "x" in peak["calibration"]["weighting"]:
+                    #     pass 
                     coefs = np.linalg.lstsq(np.asarray(x).reshape(-1,1), y)[0]
                     # add additional points to plot a smoother curve
                     x_fit = np.linspace(np.min(x_total), np.max(x_total), 20)
                     y_fit = x_fit * coefs[0]
 
                     text += f"{coefs[0]:.4g}x"
-            except Exception:
-                return no_update
 
-            if peak["calibration"]["type"] != "response-factor":
-                text += f"<br>r2 = {r2:.5f}"
+                if peak["calibration"]["type"] != "response-factor":
+                    text += f"<br>r2 = {r2:.5f}"
+
+            except Exception:
+                coefs = []
+
 
             annotation = [
                 {
@@ -356,4 +412,5 @@ def update_calibrators(_, compound, peak_data):
             patched_fig["layout"]["xaxis"]["title"]["text"] = f"Concentration ({peak['calibration']['units']})"
             patched_fig["data"] = traces
     
-    return patched_fig
+            return patched_fig, coefs
+    return no_update, coefs
