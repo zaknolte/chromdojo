@@ -139,17 +139,33 @@ class Calibration {
   };
 
   calculate_concentration(area) {
+    // area = y
+    // solve for x
+    if (area === 0) {
+        return 0;
+    };
+
     if (!this.type || this.coefficients.every((i) => false)) {
         return 0;
     }
     else if (this.type === "linear") {
-        return this.coefficients[0] * area + this.coefficients[1];
+        // y = mx + b
+        // x = (y - b) / m
+        return (area - this.coefficients[1]) / this.coefficients[0]
     }
     else if (this.type === "quadratic") {
-        return (this.coefficients[0] * area * area) + (this.coefficients[1] * area) + this.coefficients[2];
+        // y = ax^2 + bx + c
+        // x = (-b ± √(b^2 - 4a(c - y))) / 2a
+        var sqrt = this.coefficients[1] * this.coefficients[1] - (4 * this.coefficients[0] * (this.coefficients[2] - area))
+        var plus = (-this.coefficients[1] + Math.sqrt(sqrt)) / (2 * this.coefficients[0]);
+        // var minus = (-this.coefficients[1] - Math.sqrt(sqrt)) / (2 * this.coefficients[0]);
+        return plus;
+        // return Math.max(plus, minus);
     }
     else if (this.type === "response-factor") {
-        return this.coefficients[0] * area;
+        // y = mx
+        // x = y/m
+        return area / this.coefficients[0];
     };
 
     return 0;
@@ -284,22 +300,12 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
                 return {"x": data["x"], "y": y, "peaks": remainingPeaks};
             };
         },
-    },
-    // graph namespace functions
-    graph: {
-        renderGraph: function(options, isChecked, isClicked, integrationData, data, autoIntegrate) {
+        addIntegration: function(integrationData, data) {
             if(typeof data !== "undefined") {
-                var annotations = [];
-                // main x y plot
-                var plot = [{
-                    x: data.x,
-                    y: data.y,
-                    type: 'scatter'
-                }];
                 for (peak of data.peaks) {
                     // clear out integrations and rebuild
                     peak.clear_integration();
-                    if (autoIntegrate) {
+                    if (integrationData !== null) {
                         for (integration of integrationData) {
                             if (integration.idx === peak.idx) {
                                 peak.area = integration.area;
@@ -308,7 +314,30 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
                             };
                         };
                     }
-
+                };
+                return new Date();
+            };
+            return window.dash_clientside.no_update;
+        }
+    },
+    // graph namespace functions
+    graph: {
+        renderGraph: function(options, isChecked, isClicked, integrationTrigger, data, tableTrigger) {
+            if(typeof data !== "undefined") {
+                var annotations = [];
+                // main x y plot
+                var plot = [{
+                    x: data.x,
+                    y: data.y,
+                    type: 'scatter'
+                }];
+                var annotationY = 0;
+                for (peak of data.peaks) {
+                    let i = [annotationY, peak.height];
+                    annotationY = Math.max(...i);
+                };
+                annotationY *= .1;
+                for (peak of data.peaks) {
                     if (peak.area > 0) {
                         // add integration shapes
                         plot.push({
@@ -341,7 +370,7 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
                     annotations.push({
                         text: text,
                         x: peak.center,
-                        y: peak.height * 1.1,
+                        y: peak.height + annotationY,
                         height: 150,
                         showarrow: false
                     });
@@ -370,8 +399,9 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
                 };
             };
             return window.dash_clientside.no_update;
-        }
+        },
     },
+    // calibration table namespace functions
     calibration: {
         updateTable: function(compound, data) {
             if(typeof data !== "undefined") {
@@ -387,11 +417,26 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
                                 Delete: "X"
                             });
                         };
+                        console.log(peak.calibration.type)
+                        peak.calibration.type = peak.calibration.type === null ? "linear" : peak.calibration.type;
+                        peak.calibration.weighting = peak.calibration.weighting === null ? "none" : peak.calibration.weighting;
+                        return [
+                            rowData,
+                            false,
+                            new Date(),
+                            peak.calibration.type,
+                            peak.calibration.weighting,
+                        ];
                     };
                 };
-                return [rowData, false];
             };
-            return [window.dash_clientside.no_update, window.dash_clientside.no_update];
+            return [
+                window.dash_clientside.no_update,
+                window.dash_clientside.no_update,
+                window.dash_clientside.no_update,
+                window.dash_clientside.no_update,
+                window.dash_clientside.no_update,
+            ];
         },
         addCal: function(n_clicks, compound, tableData, peakData) {
             if(typeof peakData !== "undefined") {
@@ -437,7 +482,7 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
             };
             return [window.dash_clientside.no_update, window.dash_clientside.no_update];
         },
-        updateCal: function(event, regression, weighting, unitChange, compound, data) {
+        updateCal: function(event, unitChange, compound, data) {
             if(typeof data !== "undefined") {
                 for (peak of data.peaks) {
                     if (peak.name === compound) {
@@ -450,11 +495,63 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
                                 peak.calibration.setPointsY(event[0].rowIndex, event[0].value);
                             }
                         };
+                    };
+                };
+                return new Date();
+            };
+            return window.dash_clientside.no_update;
+        },
+        updateCalType: function(regression, compound, data) {
+            if(typeof data !== "undefined") {
+                for (peak of data.peaks) {
+                    if (peak.name === compound) {
+                        console.log(regression)
                         peak.calibration.type = regression;
+                    };
+                };
+                return new Date();
+            };
+            return window.dash_clientside.no_update;
+        },
+        updateCalWeight: function(weighting, compound, data) {
+            if(typeof data !== "undefined") {
+                for (peak of data.peaks) {
+                    if (peak.name === compound) {
                         peak.calibration.weighting = weighting;
                     };
                 };
                 return new Date();
+            };
+            return window.dash_clientside.no_update;
+        },
+        updateCoefs: function(coefs, compound, data) {
+            if(typeof data !== "undefined") {
+                for (peak of data.peaks) {
+                    if (peak.name === compound) {
+                        peak.calibration.coefficients = coefs;
+                    };
+                };
+            };
+            return new Date();
+        },
+    },
+    // results table namespace functions
+    results: {
+        updateTable: function(data) {
+            if(typeof data !== "undefined") {
+                var rowData = [];
+                for (peak of data.peaks) {
+                    peak.calibration.calculate_concentration(peak.area);
+                    rowData.push({
+                        RT: `${peak.center.toFixed(2)} min`,
+                        Name: peak.name,
+                        Height: `${peak.height.toFixed(2)}`,
+                        Area: `${peak.area.toFixed(2)}`,
+                        Concentration: `${peak.concentration.toFixed(2)}`,
+                        Units: peak.calibration.units
+                    })
+                };
+                return rowData;
             };
             return window.dash_clientside.no_update;
         }
