@@ -1,9 +1,7 @@
-from dash import Dash, dcc, html, Input, Output, ALL, Patch, callback
+from dash import html
 import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
 from dash_iconify import DashIconify
-
-import numpy as np
 
 integration_accordian = dmc.Accordion(
     children=[

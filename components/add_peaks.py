@@ -1,4 +1,4 @@
-from dash import Dash, dcc, html, Input, Output, State, ALL, Patch, callback, MATCH, ctx, no_update
+from dash import dcc, html, Input, Output, ALL, Patch, callback, MATCH, ctx, no_update
 import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
 from dash_iconify import DashIconify

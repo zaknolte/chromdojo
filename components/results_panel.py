@@ -1,14 +1,6 @@
-from dash import Dash, dcc, html, Input, Output, State, ALL, Patch, callback, MATCH, no_update, ctx, clientside_callback, ClientsideFunction
+from dash import Input, Output, State, clientside_callback, ClientsideFunction
 import dash_ag_grid as dag
-import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
-from dash_iconify import DashIconify
-
-import numpy as np
-import peakutils
-from scipy.signal import find_peaks
-import jsonpickle
-import datetime
 
 results_panel = dmc.TabsPanel(
     dag.AgGrid(

@@ -1,10 +1,7 @@
-from dash import Dash, dcc, html, Input, Output, State, ALL, Patch, callback, MATCH
 import dash_ag_grid as dag
-import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
 from dash_iconify import DashIconify
 
-# base peak accordion - no peaks exist by default
 annotations_accordian = dmc.Accordion(
     children=[
         dmc.AccordionItem(

@@ -1,18 +1,10 @@
 import plotly.graph_objects as go
-from dash import Dash, dcc, html, Input, Output, State, ALL, Patch, callback, MATCH, no_update, ctx, clientside_callback, ClientsideFunction
+from dash import dcc, html, Input, Output, State, ALL, Patch, callback, no_update, clientside_callback, ClientsideFunction
 import dash_ag_grid as dag
 import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
-from dash_iconify import DashIconify
 
 import numpy as np
-import peakutils
-from scipy.signal import find_peaks
-import jsonpickle
-import datetime
-
-from components.Calibration import calPoint
-
 
 calibration_panel = dmc.TabsPanel(
     html.Div(

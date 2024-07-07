@@ -1,8 +1,7 @@
-from dash import Dash, dcc, html, Input, Output, State, ALL, Patch, callback, MATCH, no_update, ctx
+from dash import html, Input, Output, ALL, Patch, callback, ctx
 import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
 from dash_iconify import DashIconify
-
 
 baseline_accordian = dmc.Accordion(
     children=[

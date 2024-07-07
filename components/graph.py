@@ -1,11 +1,8 @@
 import plotly.graph_objects as go
-from dash import dcc, callback, Output, Input, State, Patch, ALL, no_update, ctx, clientside_callback, ClientsideFunction
-import dash_bootstrap_components as dbc
+from dash import dcc, callback, Output, Input, State, ALL, no_update, clientside_callback, ClientsideFunction
 import numpy as np
 import peakutils
 from scipy.signal import find_peaks
-from components.Compound import Compound
-import jsonpickle
 
 def make_annotations(peaks, annotations_options):
     annotations = []
