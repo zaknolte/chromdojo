@@ -36,19 +36,23 @@ def make_annotations(peaks, annotations_options):
 def integrate_peaks(peak_list, x, y, width, height, threshold, distance, prominence, wlen):
     x = np.asarray(x)
     y = np.asarray(y)
-    peaks = find_peaks(y, width=width, height=height, threshold=threshold, distance=distance, prominence=prominence, wlen=wlen)
-    baseline = peakutils.baseline(y)
-    for i in range(len(peaks[1]["left_bases"])):
-        for peak in peak_list:
-            if peak["center"] == peaks[0][i] / 60:
-                clear_integration(peak)
-                start, stop = peaks[1]["left_bases"][i], peaks[1]["right_bases"][i]
-                auc = np.trapz(y[start:stop], x[start:stop]) - np.trapz(baseline[start:stop], x[start:stop])
-                peak["start_idx"] = start
-                peak["stop_idx"] = stop
-                peak["area"] = auc
+    initial_peaks = peak_list
+    try:
+        peaks = find_peaks(y, width=width, height=height, threshold=threshold, distance=distance, prominence=prominence, wlen=wlen)
+        baseline = peakutils.baseline(y)
+        for i in range(len(peaks[1]["left_bases"])):
+            for peak in peak_list:
+                if peak["center"] == peaks[0][i] / 60:
+                    clear_integration(peak)
+                    start, stop = peaks[1]["left_bases"][i], peaks[1]["right_bases"][i]
+                    auc = np.trapz(y[start:stop], x[start:stop]) - np.trapz(baseline[start:stop], x[start:stop])
+                    peak["start_idx"] = start
+                    peak["stop_idx"] = stop
+                    peak["area"] = auc
 
-    return peak_list
+        return peak_list
+    except ZeroDivisionError:
+        return initial_peaks
 
 def clear_integration(peak):
     peak["start_idx"] = 0
@@ -126,6 +130,17 @@ clientside_callback(
 
 clientside_callback(
     ClientsideFunction(
+        namespace="peaks",
+        function_name='addIntegration'
+    ),
+    Output("integration-intermediate", "data"),
+    Input("integration-data", "data"),
+    State("x-y-data", "data"),
+    prevent_initial_call=True
+)
+
+clientside_callback(
+    ClientsideFunction(
         namespace="graph",
         function_name='renderGraph'
     ),
@@ -133,9 +148,9 @@ clientside_callback(
     Input("annotations-options", "virtualRowData"), # trigger for re-arranging annotation rows
     Input("annotations-options", "cellRendererData"), # trigger for annotation checkboxes
     Input("annotations-options", "cellClicked"), # trigger for clicking a cell that contains a checkbox (cell clicks check box but don't trigger checkbox callback)
-    Input("integration-data", "data"),
+    Input("integration-intermediate", "data"),
     Input("x-y-data", "data"),
-    State("auto-integration", "checked"),
+    Input("calibration-intermediate", "data"),
     prevent_initial_call=True
 )
 
