@@ -1,9 +1,7 @@
-from dash import Dash, dcc, html, Input, Output, ALL, Patch, callback
+from dash import html
 import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
 from dash_iconify import DashIconify
-
-import numpy as np
 
 integration_accordian = dmc.Accordion(
     children=[
@@ -35,14 +33,14 @@ integration_accordian = dmc.Accordion(
                         ),
                         html.Div(
                             [
-                                html.P("Peak Width:", style={"margin-top": 10}),
+                                html.P("Min Peak Width:", style={"margin-top": 10}),
                                 dbc.Input(type="number", value=0, min=0, style={"width": 100, "margin-left": 20}, className="sidebar-input", id="integration-width")
                             ],
                             className="accordian-options"
                         ),
                         html.Div(
                             [
-                                html.P("Peak Height:", style={"margin-top": 10}),
+                                html.P("Min Peak Height:", style={"margin-top": 10}),
                                 dbc.Input(type="number", value=0, min=0, style={"width": 100, "margin-left": 20}, className="sidebar-input", id="integration-height")
                             ],
                             className="accordian-options"
@@ -56,7 +54,7 @@ integration_accordian = dmc.Accordion(
                         ),
                         html.Div(
                             [
-                                html.P("Distance:", style={"margin-top": 10}),
+                                html.P("Close Peaks Distance:", style={"margin-top": 10}),
                                 dbc.Input(type="number", value=1, min=0, style={"width": 100, "margin-left": 20}, className="sidebar-input", id="integration-distance")
                             ],
                             className="accordian-options"

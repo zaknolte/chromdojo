@@ -1,13 +1,5 @@
-from dash import Dash, dcc, html, Input, Output, State, ALL, Patch, callback, MATCH, no_update, ctx
-import dash_ag_grid as dag
-import dash_bootstrap_components as dbc
+from dash import html
 import dash_mantine_components as dmc
-from dash_iconify import DashIconify
-
-import numpy as np
-import peakutils
-from scipy.signal import find_peaks
-import jsonpickle
 
 from components.results_panel import results_panel
 from components.calibration_panel import calibration_panel

@@ -42,7 +42,7 @@ dagcomponentfuncs.deleteCal = function (props) {
         setData(props.value)
     }
 
-    let iconify = React.createElement(window.dash_iconify.DashIconify, {icon: props.icon});
+    var iconify = React.createElement(window.dash_iconify.DashIconify, {icon: props.icon});
 
     return React.createElement(
         window.dash_mantine_components.Button,
@@ -54,4 +54,11 @@ dagcomponentfuncs.deleteCal = function (props) {
         },
         props.value
     );
+};
+
+dagcomponentfuncs.editUnit = function (props) {
+    return React.createElement('div', {style: {display: "flex", justifyContent: "space-between", alignItems: "baseline"}}, [
+        `${props.value}`,
+        React.createElement('i', {className: "fa-solid fa-pencil"}),
+    ])
 };

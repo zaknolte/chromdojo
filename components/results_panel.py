@@ -1,14 +1,6 @@
-from dash import Dash, dcc, html, Input, Output, State, ALL, Patch, callback, MATCH, no_update, ctx
+from dash import Input, Output, State, clientside_callback, ClientsideFunction
 import dash_ag_grid as dag
-import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
-from dash_iconify import DashIconify
-
-import numpy as np
-import peakutils
-from scipy.signal import find_peaks
-import jsonpickle
-import datetime
 
 results_panel = dmc.TabsPanel(
     dag.AgGrid(
@@ -17,6 +9,7 @@ results_panel = dmc.TabsPanel(
             {
                 "field": "RT",
                 "width": 140,
+                "sort": "asc",
             },
             {
                 "field": "Name",
@@ -37,13 +30,9 @@ results_panel = dmc.TabsPanel(
             {
                 "field": "Units",
                 "width": 140,
-                "icons": {
-                    "sortAscending": '<i class="fa fa-solid fa-pencil">',
-                    "sortDescending": '<i class="fa fa-solid fa-pencil"/>',
-                },
-                "sort": "desc",
-                "editable": True
-                # "sortable": False
+                "editable": True,
+                "sortable": False,
+                "cellRenderer": "editUnit",
             },
         ],
         dashGridOptions={
@@ -55,46 +44,26 @@ results_panel = dmc.TabsPanel(
     value="results"
 )
 
-
-@callback(
+clientside_callback(
+    ClientsideFunction(
+        namespace="results",
+        function_name='updateTable'
+    ),
     Output("results-table", "rowData"),
+    Input("integration-intermediate", "data"),
+    Input("calibration-intermediate", "data"),
     Input("x-y-data", "data"),
+    State("results-table", "columnDefs"),
     prevent_initial_call=True
 )
-def update_results_table(graph_data):
-    if graph_data is not None and any(graph_data["y"]):
-        peaks = jsonpickle.decode(graph_data["peaks"])
-        row_data = []
-        for peak in peaks:
-            if peak.area == 0:
-                conc = 0
-            else:
-                conc = peak.calibration.calculate_concentration(peak.area)
-            row_data.append(
-                {
-                    "RT": f"{peak.center:.2f} min",
-                    "Name": peak.name,
-                    "Height": f"{peak.height:.2f}",
-                    "Area": f"{peak.area:.2f}",
-                    "Concentration": f"{conc:.2f}",
-                    "Units": peak.calibration.units
-                }
-            )
 
-        return row_data
-    
-    return no_update
-
-@callback(
-    Output("x-y-data", "data", allow_duplicate=True),
+clientside_callback(
+    ClientsideFunction(
+        namespace="results",
+        function_name='updateUnits'
+    ),
     Output("table-updates", "data", allow_duplicate=True),
     Input("results-table", "cellValueChanged"),
     State("x-y-data", "data"),
     prevent_initial_call=True
 )
-def update_units(units, graph_data):
-    peaks = jsonpickle.decode(graph_data["peaks"])
-    for peak in peaks:
-        if peak.name == units[0]["data"]["Name"]:
-            peak.calibration.units = units[0]["data"]["Units"]
-    return {"x": graph_data["x"], "y": graph_data["y"], "peaks": jsonpickle.encode(peaks)}, datetime.datetime.now().strftime("%m/%d/%Y, %H:%M:%S")

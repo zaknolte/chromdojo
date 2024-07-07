@@ -1,4 +1,4 @@
-from dash import Dash, dcc, html, Input, Output, ALL, Patch, callback
+from dash import dcc, html, Input, Output, callback
 import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
 from dash_iconify import DashIconify
@@ -32,7 +32,6 @@ noise_accordian = dmc.Accordion(
         dcc.Store(id="noise-data")
     ]
 )
-
 
 # noise needs to be calculated and stored separately to keep it 'static' until explicitly changed
 # otherwise it gets recalculated on every single update to fig resulting in bad UX

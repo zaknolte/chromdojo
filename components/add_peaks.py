@@ -1,4 +1,4 @@
-from dash import Dash, dcc, html, Input, Output, State, ALL, Patch, callback, MATCH, ctx
+from dash import dcc, html, Input, Output, ALL, Patch, callback, MATCH, ctx, no_update
 import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
 from dash_iconify import DashIconify
@@ -27,6 +27,11 @@ peak_accordian = dmc.Accordion(
             ],
             value="peak-accordian",
         ),
+        # clientside callbacks trigger before dash python callbacks
+        # force python callback to execute first
+        # create intermediate components to use as inputs for clientside callback
+        dcc.Store(id="peak-added", data=0),
+        dcc.Store(id="peak-deleted", data=0)
     ]
 )
 
@@ -61,7 +66,7 @@ def peak_options(n_clicks):
                             html.Div(
                                 [
                                     html.P("Peak Center:", style={"margin-top": 10}),
-                                    dbc.Input(type="number", value=0, min=0, step=0.1, style={"width": 100, "margin-left": 20}, className="sidebar-input", id={"type": "peak-center", "index": n_clicks})
+                                    dbc.Input(type="number", value=0, min=0, step=0.05, style={"width": 100, "margin-left": 20}, className="sidebar-input", id={"type": "peak-center", "index": n_clicks})
                                 ],
                                 className="accordian-options"
                             ),
@@ -75,14 +80,14 @@ def peak_options(n_clicks):
                             html.Div(
                                 [
                                     html.P("Peak Width:", style={"margin-top": 10}),
-                                    dbc.Input(type="number", value=0, min=0, step=0.01, style={"width": 100, "margin-left": 20}, className="sidebar-input", id={"type": "peak-width", "index": n_clicks})
+                                    dbc.Input(type="number", value=0.01, min=0.01, step=0.01, style={"width": 100, "margin-left": 20}, className="sidebar-input", id={"type": "peak-width", "index": n_clicks})
                                 ],
                                 className="accordian-options"
                             ),
                             html.Div(
                                 [
                                     html.P("Skew Factor:", style={"margin-top": 10}),
-                                    dbc.Input(type="number", value=0, step=0.1, style={"width": 100, "margin-left": 20}, className="sidebar-input", id={"type": "peak-skew", "index": n_clicks})
+                                    dbc.Input(type="number", value=0, step=0.1, min=-0.3, max=0.3, style={"width": 100, "margin-left": 20}, className="sidebar-input", id={"type": "peak-skew", "index": n_clicks})
                                 ],
                                 className="accordian-options"
                             ),
@@ -97,13 +102,19 @@ def peak_options(n_clicks):
 # Add / Delete another peak accordian with all peak options
 @callback(
     Output("add-peak-container", "children"),
+    Output("peak-added", "data"),
+    Output("peak-deleted", "data"),
     Input("add-peak", "n_clicks"),
     Input({"type": "peak-delete", "index": ALL}, "n_clicks"),
     prevent_initial_call=True
 )
 def display_dropdowns(add_peak, del_peak):
+    is_added = add_peak
+    is_deleted = no_update
     patched_children = Patch()
     if ctx.triggered_id != "add-peak":
+        is_deleted = True
+        is_added = no_update
         values_to_remove = []
         for i, val in enumerate(del_peak):
             if val:
@@ -114,7 +125,7 @@ def display_dropdowns(add_peak, del_peak):
     else:
         peak = peak_options(add_peak)
         patched_children.append(peak)
-    return patched_children
+    return patched_children, is_added, is_deleted
 
 # Rename peak
 @callback(
