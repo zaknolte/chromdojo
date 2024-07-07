@@ -40,6 +40,10 @@ app.layout = dmc.MantineProvider(
                     graph,
                     data_tab,
                     dcc.Store(id="x-y-data", data=None), # hold major updates to peak data
+                    dcc.Store(id="integration-intermediate", data=None),
+                    dcc.Store(id="integration-data", data=None),
+                    dcc.Store(id="annotation-data", data=None),
+                    dcc.Store(id="calibration-intermediate", data=None),
                     dcc.Store(id="table-updates", data=None), # trigger minor updates from calibration / results updates
                 ],
                 className="content"
