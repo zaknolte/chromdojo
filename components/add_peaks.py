@@ -66,7 +66,7 @@ def peak_options(n_clicks):
                             html.Div(
                                 [
                                     html.P("Peak Center:", style={"margin-top": 10}),
-                                    dbc.Input(type="number", value=0, min=0, step=0.1, style={"width": 100, "margin-left": 20}, className="sidebar-input", id={"type": "peak-center", "index": n_clicks})
+                                    dbc.Input(type="number", value=0, min=0, step=0.05, style={"width": 100, "margin-left": 20}, className="sidebar-input", id={"type": "peak-center", "index": n_clicks})
                                 ],
                                 className="accordian-options"
                             ),
@@ -87,7 +87,7 @@ def peak_options(n_clicks):
                             html.Div(
                                 [
                                     html.P("Skew Factor:", style={"margin-top": 10}),
-                                    dbc.Input(type="number", value=0, step=0.1, style={"width": 100, "margin-left": 20}, className="sidebar-input", id={"type": "peak-skew", "index": n_clicks})
+                                    dbc.Input(type="number", value=0, step=0.1, min=-0.3, max=0.3, style={"width": 100, "margin-left": 20}, className="sidebar-input", id={"type": "peak-skew", "index": n_clicks})
                                 ],
                                 className="accordian-options"
                             ),
